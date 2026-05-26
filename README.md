@@ -1,226 +1,288 @@
 # Shopify vs WooCommerce: Tracking Compared
 
-**[Server-side tracking](/resources/best-server-side-tracking-2026) on [Shopify](/resources/datacops-shopify) costs a merchant somewhere between $300 and $600 a month once you add up the apps.** The same tracking on WooCommerce runs **$89** to **$149**. Same Meta CAPI events, same [GA4](/alternative/ga4-alternative), same Google Ads conversions. **Five times the price on one platform.** I have set this up on both, more times than I want to count, and that gap is not an accident.
+Let's get this out of the way immediately: the platform debate isn't really about features anymore.
 
-Most "Shopify vs WooCommerce analytics" comparisons line up feature checkboxes. Both do [GA4](/resources/best-ga4-alternative-2026). Both do CAPI. Tie. **That misses the entire point.** The platforms are not different on features. They are different on architecture, and the architecture is what decides:
+It's about tracking economics. And most comparison guides don't tell you that.
 
-- Your tracking bill
-- Your data accuracy
-- How much of your stack you actually control
+I spent a month running audits on both Shopify and WooCommerce stores across different verticals. Same GA4 setup, same CAPI goals, same budget bracket. What I found was a structural cost gap that nobody's talking about honestly. Shopify wins on simplicity. WooCommerce wins on data control. And both lose equally on the single biggest problem: the 30-40% of conversions that vanish before they ever reach your ad platform.
 
-This is not a feature-parity post. **This is a post about why one platform makes you rent your own data back through apps, and why that matters more than the monthly invoice.** [DataCops](/conversion-api) shows up later as the part neither platform solves on its own - the [first-party layer that filters bots](/fraud-traffic-validation) and separates your data tiers before anything ships to an ad platform via [Meta CAPI](/meta-conversion-api) or [Google Ads CAPI](/google-conversion-api), the same way on both Shopify and WooCommerce.
+Here's what I found.
 
-Let me show you the real difference, then go through the tools you would actually bolt on. For adjacent reads see [Shopify server-side tracking](/resources/shopify-server-side-tracking).
+---
 
-## Quick stuff people keep asking
+## The setup gap is real. So is the cost gap.
 
-**Is Shopify or WooCommerce better for conversion tracking?** WooCommerce gives you more control and costs less. Shopify gives you less control and costs more, but does not require you to maintain a WordPress site. "Better" depends on whether you value control or hands-off operation. On raw tracking capability and cost, WooCommerce wins. On not having to be your own sysadmin, Shopify wins.
+Shopify Analytics activates automatically the moment your store goes live. You get revenue, sessions, and product performance out of the box. No setup. No developer. No GTM container.
 
-**What are the differences in analytics between Shopify and WooCommerce?** Shopify owns your checkout. You cannot put custom tracking code inside the Shopify checkout unless you are on Shopify Plus - that is the single biggest structural difference. WooCommerce hands you the whole checkout, full webhook access, and a data layer you can edit. One platform rents data access back to you through apps. The other just gives it to you.
+WooCommerce gives you nothing by default. You need GA4, you need to configure it yourself, and as of 2026, that setup takes 30 to 45 minutes if you know what you're doing and several hours if you don't.
 
-**Can I do server-side tracking on WooCommerce?** Yes, and cheaply. WooCommerce fires server-side order webhooks natively. You can wire those to Meta CAPI and GA4 with a plugin or a small amount of custom code. No app marketplace tax.
+On the surface, Shopify wins. Until you ask: what happens when you need server-side tracking?
 
-**Why is Shopify tracking more expensive than WooCommerce?** Because Shopify locks the checkout. To get reliable server-side purchase events you route through a Shopify app, and that app charges a recurring fee, often with per-order overages. The cost is the price of access to data your store generated. On WooCommerce that data is just yours.
+On Shopify, every ad platform needs its own app. Meta CAPI? App. Google Ads CAPI? Different app. TikTok? Third app. Each one adds $50 to $300 per month. By the time you've wired up three channels with proper server-side coverage, you're looking at $300 to $600 per month, minimum, just for tracking infrastructure.
 
-**Which platform has better GA4 integration?** Practically a tie on capability. WooCommerce reaches it cheaper through native plugins. Shopify reaches it through paid apps. The integration quality is similar; the path and the price are not.
+On WooCommerce, you own the data layer. One webhook. One server-side connector. Routes to six platforms. Total cost: $89 to $149 per month in tooling.
 
-## The gap: checkout lock is a tracking-cost decision
+That's a 3x to 6x cost gap that no feature comparison guide mentions. And it's structural. It's not a temporary pricing situation. It's baked into Shopify's architecture.
 
-Here is the architectural thing nobody frames correctly.
+Shopify introduced Optimized Mode for App Pixels in January 2026, which auto-throttles weak-performing pixels. That's useful. It doesn't fix the app-dependency problem.
 
-When you choose Shopify, you are choosing a closed checkout. That is great for security and conversion polish - Shopify checkout is genuinely good. But it means the most important page in your funnel, the purchase page, is a page you cannot put your own code on unless you pay for Shopify Plus.
+---
 
-So every merchant who wants accurate server-side purchase tracking funnels through the app ecosystem. The apps in this guide exist because of that lock. They are the toll booth on a road Shopify closed.
+## The checkout problem. And why it matters for your GA4 numbers.
 
-WooCommerce made the opposite choice. Open checkout, native order webhooks, an editable data layer. You can build unified server-side tracking yourself for the price of hosting and a plugin. That is the **$89**-to-**$149** number versus the **$300**-to-**$600** number.
+Here's a specific complaint I hear from Shopify merchants constantly: GA4 shows 5 to 15% lower traffic and conversions than Shopify Analytics. Every. Single. Time.
 
-But - and this is the part both platforms get wrong - neither choice does anything about data quality.
+It's not a GA4 bug. It's an architecture problem.
 
-Whatever you build, on either platform, you are forwarding events. And Shopify product pages in particular are some of the most bot-scraped pages on the entire internet. Price monitors, inventory checkers, competitor scrapers, AI agents.
+Shopify's checkout runs on `checkout.shopify.com`. That's a different domain from your store. And 60 to 70% of Shopify GA4 implementations have cross-domain tracking misconfigured. When the domain changes mid-session, GA4 loses the user. The session breaks. The conversion never gets attributed.
 
-Of the traffic a typical store counts as visitors, 24 to 31 percent is automated. When those bots trigger an add-to-cart or fire a checkout event, your tracking app forwards it to Meta CAPI exactly as faithfully as it forwards a real customer's. The app's accuracy claim - "**99%** event capture" - measures completeness, not quality. It is capturing the bots at 99 percent too.
+Shopify Plus fixes this. You can customize the checkout URL. But Shopify Plus starts at $2,300 per month. For most Shopify merchants, it's not accessible. It's a forced upsell.
 
-Then there is the part that costs real money. Meta and Google do not just count those conversions. They learn from them. Feed the algorithm bot conversions and it goes hunting for more traffic that looks like bots. ROAS drifts down while your reports look fine.
+WooCommerce doesn't have this problem. You own the checkout. It's on your domain. No cross-domain tracking to configure. No Plus-tier paywall.
 
-One concrete example so this is not abstract. A company called PillarlabAI built a honeypot signup flow to see what was real. 3,000 signups came in. On inspection, 77 percent were fraudulent - and 650 of those "separate" accounts traced to a single device fingerprint.
+If you're running a Shopify Standard or Advanced store and wondering why your Meta ROAS looks off and your GA4 numbers don't match your Shopify dashboard, this is likely why.
 
-One machine wearing 650 faces. Any tracking tool in this guide would have forwarded all 650 of those conversion events to Meta as genuine. The platform you picked, Shopify or WooCommerce, does not change that. The tracking app you picked does not change it either, because none of them filter.
+---
 
-If you serve EU traffic there is one more leak. Your consent banner is a third-party script. Privacy browsers and uBlock block it 30 to 40 percent of the time, and on fast page transitions it can lose the race.
+## The 30-40% data loss problem nobody's talking about honestly.
 
-When the banner does not load, your tracking fires without a consent signal or does not fire at all. And the common belief that a EU "Reject All" means zero data is wrong - anonymous, aggregate session analytics are always legal. Most stacks just throw that data away instead of keeping it.
+Here's the thing: this is the part that affects Shopify AND WooCommerce equally.
 
-So keep this frame as you read the tools. The real question is not "which captures the most events." It is "what does each tool do with the events between capture and the ad platform." For most of them the answer is: nothing. They forward.
+GA4 shows 30 to 40% lower conversions than the platforms' internal data on both stacks. Not because Shopify or WooCommerce is broken. Because privacy restrictions are doing exactly what they're designed to do.
 
-## The tools you would actually bolt on
+Brave Shields blocks your pixel. iOS Safari drops cross-site cookies. Users opt out in your consent banner. Ad blockers intercept the event call before it leaves the browser.
 
-Tiered by what they do and how honestly the value lands. DataCops sits at #1 of its tier because it operates on a layer none of the others touch - but I will be straight about which tools are simply good at their job and need no DataCops pivot at all.
+By the time a conversion makes it through all those layers and lands in your GA4 account, you've already lost a significant share of the real events.
 
-### Tier 1 - the data-quality layer
+This is the number that should drive your platform decision far more than "Shopify Analytics is easier to set up." Because setup time is a one-time cost. Missing 30 to 40% of your attribution is a permanent tax on every campaign you run.
 
-**DataCops.**
+The fix is the same for both platforms: server-side tracking with a first-party CNAME, paired with a proper consent layer. Your event fires from your own subdomain. Ad blockers can't see it. ITP can't cut the cookie. The consent signal is attached server-side and honored before the event is forwarded.
 
-**What it is:** a first-party data layer that runs on your own subdomain, working the same on Shopify and WooCommerce.
+DataCops provides this on both platforms. CNAME-based first-party analytics, server-side CAPI to Meta/Google/TikTok/LinkedIn, TCF 2.2 consent management, all from a single script tag and one DNS record. It takes 5 to 30 minutes to go live. And it recovers 30 to 40% of the conversions that were disappearing.
 
-**What it does well:** it is the only tool here that filters before it forwards. Bot detection happens at ingestion, backed by an IP intelligence database of 361.8 billion-plus addresses, sorting residential from datacenter, VPN, proxy, and Tor. It splits your data into two tiers at the source - anonymous session analytics flow unconditionally because that data is always legal, identifiable data waits for consent. Clean conversions go to Meta, Google, TikTok, and LinkedIn through a server-side conversion API.
+Setup: paste a `<script>` tag in your `<head>`, add one CNAME record pointing to your DataCops subdomain. That's it. Free tier is real and doesn't require a card.
 
-**Where it breaks:** it is honestly newer than [Elevar](/alternative/elevar-alternative) or [Triple Whale](/alternative/triple-whale-alternative), and SOC 2 Type II is in progress, not finished - a regulated buyer with a hard compliance gate may need to wait. The shared-CAPI piece is in verification, so do not buy it expecting that to be fully live today. And it surfaces fraud context for you to act on; it does not promise to make every bot vanish behind one toggle.
+---
 
-**Value for money:** 8.5/10 - it is the layer the other ten tools assume someone else handles.
+## The tools. What's actually available, what it costs, and what the reviews say.
 
-**[Pricing](/pricing):** free tier covers 2,000 signup verifications/month; paid plans scale from there.
+I tested or audited 10 tools in this category. These are the ones worth knowing about.
 
-### Tier 2 - strong Shopify event capture (use one, just know its ceiling)
+---
 
-**Elevar.**
+**1. Elevar (Shopify-focused CAPI, now part of Audiense)**
 
-**What it is:** the most widely adopted server-side tracking solution for Shopify, trusted by 6,500-plus DTC brands including Vuori, SKIMS, and Rothy's.
+The Good: Powers conversion tracking for 6,500+ DTC Shopify brands. Free Starter tier up to 100 orders per month. Session Enrichment delivers a measurable 10 to 20% conversion-recovery lift. Deep native integrations: Meta, Google, TikTok, Klaviyo, Pinterest.
 
-**What it does well:** the deepest Shopify data layer in the category, with pre-built server-side integrations for Meta, Google Ads, TikTok, Klaviyo, and GA4. If you want event capture depth, nothing beats it.
+Frustrations: Setup is complicated. Most brands end up paying $1,000+ for Expert Installation or $500/mo for ongoing tag support. Overage fees bite hard at BFCM: Essentials charges $0.15/order over 1K. Funnels have unresolved Google Analytics API issues. Support communication lags during incidents.
 
-**Where it breaks:** it ignores data quality entirely (Layer 4) - it captures and forwards every Shopify event without any invalid-traffic filter, so its accuracy claims describe completeness, not cleanliness. That flows straight into Layer 5: every bot conversion reaches Meta and Google at the same server-side fidelity as a real one. With 6,500-plus brands forwarding, that is a large pool of advertisers training the algorithms on contaminated signal. On consent, Elevar supports Consent Mode v2 configuration but does not natively suppress server-side events post-rejection without you wiring up GTM yourself. The gold standard for getting events out of Shopify; it just does not check what is in them.
+Wish List: Transparent overage caps before peak season. Dashboards that stay reliable at scale.
 
-**Value for money:** 5/10 - best capture depth in the market, but March 2026 price hikes pushed Essentials to **$200/month** and Business to **$950/month**, and the July 2025 Audiense/Buxton acquisition stacked a three-layer corporate structure on top that made procurement messier.
+Value for Money: 7.5/10. Best-in-class Shopify CAPI if you're willing to pay for setup. Not the cheapest, but 6,500+ live merchants is a real signal.
 
-**Pricing:** Essentials **$200/month** (1,000 orders, **$0.15/order** overage), Business **$950/month**, custom enterprise above.
+Pricing: Starter $0 (100 orders/mo), Essentials $200/mo (1K orders), Growth $450/mo (10K), Business $950/mo (50K).
 
-**Analyzify.**
+---
 
-**What it is:** the most complete Shopify tracking solution at its price point - a flat annual fee covering GA4, Meta CAPI, TikTok Events API, and Google Ads server-side.
+**2. TrackBee (Shopify-only CAPI)**
 
-**What it does well:** claimed **99%** GA4 purchase tracking accuracy and a **90%**-plus Meta EMQ lift, with professional implementation included in the base fee. Genuinely good value for a small store that only needs capture.
+The Good: No GTM, no cloud server, no dev work. Connects to Shopify backend and captures funnel events server-side. Most brands report improved ROAS within 2 weeks. Support replies in under 3 minutes per Trustpilot reviews. 30-day free trial.
 
-**Where it breaks:** the **99%** accuracy number is event capture rate, not data quality - there is no bot or invalid-traffic filter, so bot purchases ride along with real ones (Layer 4), and the better EMQ just means the contaminated signal reaches Meta more efficiently (Layer 5). Consent enforcement is delegated to your own Consent Mode setup in GTM. The honest catch on price: the **$749**-to-**$945/year** base looks cheap until you add [Stape](/alternative/stape-alternative) sGTM hosting (**$1,490**) or Google Cloud setup (**$2,790**) and land at **$3,000**-**$4,000/year**. And the February 2026 forced upgrade to a "marketing data platform" changed existing customers' interfaces mid-subscription with little notice, which generated a wave of angry App Store reviews.
+Frustrations: Switched to a more expensive subscription model in 2025. Entry at €79/mo priced out smaller shops. No click-ID revenue included in plans, which users call unfair. Refund disputes documented on Trustpilot. Shopify-only. WooCommerce stores can't use it.
 
-**Value for money:** 6/10 - excellent for a sub-10,000-orders/month store needing capture only, poor once the add-ons stack up.
+Wish List: Lower entry price or pay-per-tracked-sale option. Friendlier cancellation policy.
 
-**Pricing:** **$749**-**$945/year** base (one store), Marketing Data Platform add-on **$295/month**, sGTM hosting **$1,490**, Google Cloud setup **$2,790**.
+Value for Money: 6.5/10. Excellent for mid-sized Shopify brands who want zero-config. Overpriced if you're small or testing.
 
-**Conversios.**
+Pricing: Start €79/mo (€25K tracked revenue), Pro €199/mo (€100K), Scale €449/mo (€500K).
 
-**What it is:** the most modular server-side stack, with separate apps for Meta CAPI, GA4, TikTok, and a combined sGTM solution - and it works on both Shopify and WooCommerce.
+---
 
-**What it does well:** broadest ad-platform coverage in the Shopify ecosystem at its price, all billed per order.
+**3. Cometly (CAPI-focused attribution)**
 
-**Where it breaks:** per-order billing with no quality filter means you pay Conversios to forward every bot order to the ad platform exactly as it forwards real ones (Layer 4), and cleaner delivery of contaminated data just accelerates the Layer 5 problem. The 2026 plan rename - Starter to "All-in-One Pixel Pro," and so on - added confusion without features, and seasonal brands face bills that spike 3-5x during peak from the **$0.15**-**$0.35/order** overage.
+The Good: Built for paid-ads teams. AI multi-touch attribution with sub-60-second data latency. Published results: match scores from 4.5 to 9.4, cost-per-qualified-call from $160 to $70. 4.4 stars on Trustpilot across 100+ reviews. Direct CAPI integration with Meta and Google.
 
-**Value for money:** 5/10 - modular and cheap at low volume, but you may be paying to deliver poisoned signal more efficiently.
+Frustrations: Pricing is sales-gated, no public tiers. Reports range from $199 to $499/mo scaling with ad spend. Pricing model reportedly changed twice in two months. Support quality split. Geared at teams spending $20K+/mo. Smaller advertisers get little value.
 
-**Pricing:** Pixel Pro free tier with **$0.20**/extra order; Server Side Tracking from **$60/month** with Google Cloud included plus **$0.15**-**$0.35/order** overage.
+Wish List: Public, predictable pricing. A lower entry tier for smaller teams who still want CAPI.
 
-**TrackBee.**
+Value for Money: 7.5/10. If you're spending $20K+/mo on paid ads and Meta's attribution is lying to you, this is one of the strongest pure-play picks.
 
-**What it is:** the fastest-to-deploy server-side tracking for Shopify - five-minute install, no GTM, no cloud infrastructure, a direct CAPI relay for Meta and Google.
+Pricing: Reported $199 to $499/mo, sales-gated. Core for $20K to $400K/mo ad spend.
 
-**What it does well:** it measurably recovers abandoned-cart attribution and asks nothing of you technically.
+---
 
-**Where it breaks:** it processes every Shopify event with no invalid-traffic filter, so bot add-to-carts and checkouts relay to Meta CAPI as legitimate conversions (Layer 4/5) - and Shopify product pages are among the most scraped pages online, so this is not a hypothetical for its core customer. It is also Shopify-only, so WooCommerce, Magento, and custom stacks are simply locked out, and it has no Consent Mode v2 integration, meaning Google Ads modelling never receives consent state.
+**4. Analyzify (Shopify analytics + CAPI)**
 
-**Value for money:** 5/10 - fastest setup in the category, capped hard by Shopify lock-in and zero bot filtering.
+The Good: Done-for-you setup included. Single annual fee ($945/yr) covers GA4 + Meta + TikTok + Google Ads server-side tracking. Multi-store discount of 20%. 4.9 stars on Shopify App Store across 244+ reviews.
 
-**Pricing:** €100/month per store, 30-day trial.
+Frustrations: Multiple reviews allege quadruplicate GA4 properties were configured, corrupting analytics and causing Google Ads disapprovals. Some merchants report unresolved issues from October 2024 through April 2025. Pricing has reportedly increased meaningfully for later buyers. Shopify-only.
 
-**Littledata.**
+Wish List: Tighter QA on implementation handoffs. An SLA on response times for production stores.
 
-**What it is:** the tool that pioneered no-code server-side tracking for Shopify, connecting order and session data to GA4, Google Ads, Meta, TikTok, and Klaviyo in under 10 minutes.
+Value for Money: 7/10. Best-in-class when the white-glove setup goes smoothly. A horror story when it doesn't. Read the 1-star reviews before committing.
 
-**What it does well:** the fastest legitimate setup for a Shopify store with no GTM resource.
+Pricing: $945/yr flat. 20% multi-store discount.
 
-**Where it breaks:** no bot-filtering layer - server-side events forward on session triggers without validation, so bot checkouts reach the ad platforms (Layer 4), and the headline "**15-25%** more recovered conversions" includes whatever bot fraction was in the original data (Layer 5). When the CMP script is blocked by an ad blocker, Littledata never gets the consent signal and defaults to no tracking, quietly losing **30-40%** of privacy-browser users. Shopify-only.
+---
 
-**Value for money:** 6/10 - genuine fast recovery cheaply at low volume, ceiling capped by the unfiltered relay.
+**5. Conversios (Shopify + WooCommerce CAPI)**
 
-**Pricing:** from **$99/month** low-volume, **$199**-**$299/month** at 2,000 orders, plus ~**$0.20**-**$0.35** per incremental order.
+The Good: Multi-platform fan-out: GA4, Google Ads, Meta, TikTok, Snapchat. Cheapest entry tier in the category at $89.10/yr. Both Shopify AND WooCommerce supported. 15-day money-back guarantee.
 
-### Tier 3 - attribution and BI (good at their job; not a tracking-quality layer)
+Frustrations: One merchant burned €4,400 in Meta learning phases over 2.5 months because 40 to 50% of conversions were never seen. Recurring complaints about no-warning renewals and refusals to refund. Plan rebrand in 2026 created confusion. Per-extra-order overages compound quickly.
 
-**Triple Whale.**
+Wish List: Tighter event-coverage QA before declaring stores live. Clear pre-renewal emails.
 
-**What it is:** the most complete Shopify-native attribution and CAPI stack in the SMB range - its Sonar product enriches every Triple Pixel event with Shopify first-party data and relays it to Meta, Google, TikTok, and X.
+Value for Money: 5.5/10. Cheapest way to get multi-pixel CAPI on both platforms. But the 1-star reviews document real money lost. Read them carefully.
 
-**What it does well:** a single app for attribution, signal enrichment, Klaviyo integration, and an AI decision layer.
+Pricing: WooCommerce Pixel Pro $89.10/yr; Shopify Server Side Tracking $699/yr.
 
-**Where it breaks:** Sonar's whole pitch is enriching and amplifying CAPI signal - and with no bot filtering, it adds first-party Shopify fields to bot events and sends them to Meta with higher confidence (Layer 5). "More signal" is also "more noise" when the noise is unfiltered. It is Shopify-first; non-Shopify stacks report materially degraded accuracy.
+---
 
-**Value for money:** 6/10 - best Shopify attribution stack in its range, with a real data-quality blind spot.
+**6. Hyros (AI ad-tracking + attribution)**
 
-**Pricing:** Starter **$179/month** annual, Advanced **$259/month** annual, custom above $5M GMV (~**$1,129/month** and up).
+The Good: Highest reported tracked-revenue attribution percentage in the category. Server-side print tracking ID recovers 18 to 40% more attributed conversions. AIR Agent (AI remarketing) at $0.10/message. Dedicated analyst on every account.
 
-**Polar Analytics.**
+Frustrations: No self-serve signup. Sales demo required before seeing pricing. Implementation runs 2 to 12 weeks. Reddit r/PPC regularly surfaces opaque pricing and hard cancellations. A 2023 Banzai acquisition that collapsed raises stability questions.
 
-**What it is:** a warehouse-native BI layer that centralizes Shopify, ad-platform, and CRM data with pre-built LTV, cohort, and ROAS dashboards, plus a server-side pixel into Meta CAPI without GTM.
+Wish List: Public transparent pricing. Faster, more guided onboarding.
 
-**What it does well:** genuinely strong BI for Shopify operators who want real cohort and LTV analysis.
+Value for Money: 6/10. Accurate if your agency runs it and you have high ad spend. For everyone else, 50 to 87% cheaper alternatives do the job.
 
-**Where it breaks:** its CAPI Enhancer recovers **40-50%** more abandonment events with no bot-validation step, so the recovered volume carries whatever bot fraction was there (Layer 4), and its identity graph enriches bot events into fake high-intent profiles before sending them to Meta (Layer 5) - the cited **41%** ROAS lift may partly reflect the algorithm learning enriched bot patterns. Honest cost note: BI alone starts at **$510/month** and incrementality testing is a separate **$4,000/month**.
+Pricing: Shopify track from $69/mo at $5K tracked revenue. Business tier from $230/mo (annual).
 
-**Value for money:** 6/10 - excellent BI, expensive fast, false sense of signal quality from unvalidated enrichment.
+---
 
-**Pricing:** from ~**$400/month** GMV-tiered; BI module from **$510/month**; incrementality **$4,000/month** separately.
+**7. Littledata (Shopify server-side tracking)**
 
-**Cometly.**
+The Good: Strongest Shopify checkout-extensibility data layer available. Subscription-aware: tracks Recharge events (skipped, failed, updated) that most CAPI tools miss. 4.8 stars on Shopify App Store. Reputation for being on a Friday-evening incident call when tags break.
 
-**What it is:** a server-side CAPI relay for Meta and Google with a unified cross-channel attribution dashboard and AI-driven attribution modelling.
+Frustrations: Per-order pricing punishes high-AOV/low-volume brands. Recharge integration has known reliability gaps despite being a marketed strength. Setup is easy but dashboards are hard to understand. Some 1-star reviews describe support pushing toward enterprise upgrades instead of helping.
 
-**What it does well:** solid relay that cuts pixel signal loss, genuinely useful for mid-market paid-social teams spending $10K-$500K/month.
+Wish List: Hardened Recharge integration. Built-in bot filtering or revenue validation.
 
-**Where it breaks:** no documented bot-filtering layer, so contaminated conversions pass straight to Meta CAPI (Layer 4/5). Pricing is also opaque - a published **$199**-**$499/month** range that conflicts with a ~**$500/month** floor quoted on sales calls, which makes budget approval painful.
+Value for Money: 7.5/10. If you're on Shopify with Recharge or a complex catalog, this is the cleanest data-layer fix. Budget for the per-order tax.
 
-**Value for money:** 5/10 - strong relay, but unchecked bot pass-through.
+Pricing: Flex $0.35/order; Standard $199/mo (1.5K orders); Pro $449/mo (5K); Plus $990/mo (10K).
 
-**Pricing:** custom ad-spend-based; third-party sources show **$199**-**$499/month** entry, sales floor appears ~**$500/month**.
+---
 
-**Hyros.**
+**8. Northbeam (multi-touch attribution + CAPI)**
 
-**What it is:** the deepest multi-touch attribution stack in direct-response advertising, using AI to stitch click IDs across email opens, calls, and offline conversions.
+The Good: Multi-touch attribution, MMM+, profit benchmarks, creative analytics in one platform. Most accurate and consistent data vs Triple Whale and Polar in head-to-heads per ATTN Agency. Backed by $30M with fresh $15M growth round in 2025. Clean integrations across Shopify, Meta, Google, TikTok.
 
-**What it does well:** for high-spend US info-product and SaaS advertisers, it surfaces revenue GA4 systematically undercounts - that is real value.
+Frustrations: Starts at $1,500/mo. Non-starter for sub-$1M ARR brands. Stripped support from accounts paying under $1K/mo. Pricing tied to pageviews, not just revenue. Attribution methodology is a black box.
 
-**Where it breaks:** this is a context note, not a knock - Hyros is built for the US direct-response market where consent banners are uncommon. If you serve meaningful EU traffic, its attribution degrades the moment users reject consent, because the fbclid and gclid parameters it depends on are suppressed under TCF 2.2 and iOS private relay. It also requires a sales demo with a 5-10 day procurement delay.
+Wish List: Starter tier under $500/mo. Transparent attribution methodology.
 
-**Value for money:** 6/10 for US high-spend direct response; 3/10 for EU-serving brands where consent data loss undermines the model.
+Value for Money: 7/10. Excellent for Shopify brands spending $50K to $500K/mo on ads. Below that band you're paying for a model that can't see enough conversions to work.
 
-**Pricing:** Business from **$230/month** at $20K tracked revenue, scaling to **$1,499/month** at $750K; Shopify-only track from **$69/month**.
+Pricing: Starter from $1,500/mo. Professional and Enterprise custom-quoted.
 
-**[Northbeam](/alternative/northbeam-alternative).**
+---
 
-**What it is:** granular multi-touch attribution across paid channels with pageview-level capture, showing channel ROAS within 24 hours instead of Meta's 3-day window.
+**9. Polar Analytics (Shopify analytics + tracking)**
 
-**What it does well:** best-in-class MTA reporting for high-spend DTC brands - a genuinely faster feedback loop for media buyers.
+The Good: Warehouse-native unified analytics + AI agents. 3,715+ merchants across 45 countries. 4.8 stars on Shopify App Store. Well-funded: $30.3M total with $19.1M Series A in November 2024.
 
-**Where it breaks:** it is a measurement product, not a relay - its outputs feed budget decisions but do not poison ad-platform training, which is a point in its favor. The real limit is the **$1,500/month** starter floor, which is priced for brands spending $250K+/month in media and punishes the $50K-$150K mid-market that needs better attribution most, plus a 14-30 day model warm-up.
+Frustrations: Pricing entirely behind a demo wall. Published entry cited at ~$470/mo but BI module alone runs $510+/mo. Custom connectors require support intervention. Mobile reporting is weak. One Trustpilot case: inventory bug unresolved for 1.5 months with poor communication.
 
-**Value for money:** 5/10 - excellent MTA, priced out of reach for the brands who need it.
+Wish List: Public per-tier pricing. Faster self-serve connector setup.
 
-**Pricing:** Starter **$1,500/month** (under $250K/month media spend), Professional and Enterprise custom.
+Value for Money: 7.5/10. Best mid-market Shopify analytics bundle if you want one vendor. Pricing opacity and mobile UX gaps keep it out of the top tier.
 
-## Decision guide
+Pricing: Demo-required. ~$470/mo entry per third-party trackers.
 
-**You are on WooCommerce and reasonably technical.** Wire native order webhooks to Meta CAPI and GA4 yourself, or use Conversios. Spend the savings elsewhere.
+---
 
-**You are on Shopify and need event capture fast with no GTM.** TrackBee or Littledata for speed; Analyzify if you want the most coverage in one flat annual fee - just budget for the add-ons.
+**10. Stape (managed sGTM hosting)**
 
-**You are a serious Shopify DTC brand and want attribution in one app.** Triple Whale.
+The Good: Cheapest fully-managed sGTM hosting at $17/mo Pro for 500K requests versus $100 to $200+/mo on raw GCP. Power-up ecosystem: Cookie Keeper, File Proxy, bot detection, multi-domain support. Container running in under 10 minutes. Strong Shopify presence.
 
-**You want real warehouse-native BI, cohorts, and LTV.** Polar Analytics, if the budget supports it.
+Frustrations: Trustpilot flags predatory renewal terms. Users say cancellations are hard to process and one agent accidentally canceled a full subscription when asked to remove one add-on. Power-ups are a la carte, so the headline price hides extras. Email-only 2FA still in 2026.
 
-**You are a US high-spend direct-response advertiser.** Hyros. Skip it if EU traffic is a real share of your funnel.
+Wish List: TOTP authenticator-app 2FA. Cleaner self-serve cancellation.
 
-**You spend $250K+/month and want a faster MTA feedback loop.** Northbeam.
+Value for Money: 7.5/10. The default sGTM host for a reason. Cheap, fast, feature-rich. Just read the renewal terms before you swipe.
 
-**You run paid budget on either platform and your ROAS is drifting.** None of the above fixes that. You need filtering before the forward. DataCops, sitting underneath whichever capture tool you chose.
+Pricing: Free (10K requests), Pro $17/mo (500K), Business $83/mo (5M), Enterprise $167/mo (20M).
 
-**You serve EU traffic and want both data tiers handled correctly at the source.** DataCops - anonymous analytics unconditionally, identifiable data on consent.
+---
 
-## The platform debate is hiding the real bill
+**11. Triple Whale (Shopify analytics + CAPI)**
 
-Here is the mistake. People agonize over Shopify versus WooCommerce as if the platform decision settles their tracking. It does not. It settles your tracking cost and how much control you start with. Then you bolt on a capture app, watch the "**99%** accuracy" number, and feel done.
+The Good: Triple Pixel + Sonar Send (Klaviyo flow enrichment) now bundled at $179/mo annual. Free tier to start and prove value. G2 Attribution Leader Spring 2026. Tight Shopify-native integration with Moby AI assistant.
 
-You are not done. Every tool in tiers 2 and 3 is an event-forwarding tool. They differ in speed, coverage, and price - they do not differ in the one thing that matures into a ROAS problem, which is that they forward bots to your ad platforms as faithfully as they forward customers.
+Frustrations: Above $5M GMV becomes GMV-based and sales-quoted. 140+ tracked attribution outages since February 2024. Moby AI has drawn complaints about crashes and unreliable outputs. Support deflects attribution discrepancies to "change your dashboard filters."
 
-The platform you picked does not change that. The capture app you picked does not change it. Only a filtering layer changes it.
+Wish List: Incrementality testing built into the model. Clearer SLAs around attribution outages.
 
-So before you obsess over the **$300** versus **$89**, ask the question that actually costs you money. Of the conversion events your store sent to Meta last month - Shopify or WooCommerce, does not matter - how many were real human beings? If you cannot answer that, your platform comparison was never the important decision.
+Value for Money: 6.5/10. Worth it for $5M+ Shopify DTC brands who already trust the pixel. For smaller stores, the price-to-reliability ratio is brutal.
+
+Pricing: Free; Starter $179/mo (annual); Advanced $259/mo (annual). >$5M GMV: custom.
+
+---
+
+**12. DataCops (server-side tracking + consent + first-party analytics)**
+
+The Good: Platform-agnostic. Works on Shopify and WooCommerce. CNAME-based first-party analytics that bypasses ad blockers and Brave Shields. Server-side CAPI to Meta, Google, TikTok, LinkedIn. TCF 2.2 certified consent management. Fraud traffic filtered before it reaches CAPI. IP database covers 361B+ IPs.
+
+Frustrations: SOC 2 Type II still in progress (honest about it, which is rare). Fewer pre-built integrations than enterprise CDPs. Newer brand, smaller ecosystem than Elevar or Triple Whale.
+
+Wish List: SOC 2 shipped. Wider native connector library.
+
+Value for Money: 8.5/10. The infrastructure layer that makes every other tool in this list more accurate. Free tier is real. Setup takes 5 to 30 minutes. Recovers the 30 to 40% of conversions that the pixel-only tools miss.
+
+Pricing: Free (2K sessions/mo); Growth $7.99/mo; Business $49/mo; Organization $299/mo.
+
+---
+
+## The architecture question you should be asking before you decide.
+
+The Shopify vs WooCommerce question in 2026 is really three questions.
+
+**Question 1: How much control do you need over your checkout?**
+
+If you're doing high-volume DTC and you need checkout customization for tracking, attribution, or A/B testing, Shopify locks you out of that unless you're on Plus at $2,300+/mo. WooCommerce gives you full access from day one.
+
+**Question 2: What will your server-side tracking cost?**
+
+Shopify: plan for $300 to $600/mo in tracking apps, plus a Shopify Plus requirement if you want to fix the cross-domain checkout issue. WooCommerce: plan for $89 to $149/mo total, and you own the data layer.
+
+**Question 3: How are you solving the 30-40% data loss problem?**
+
+This one is platform-agnostic. Shopify or WooCommerce, the answer is the same: first-party CNAME tracking, server-side CAPI, and a proper consent layer. Without it, you're optimizing off incomplete data regardless of which platform you chose.
+
+---
+
+## The hybrid approach some operators are running.
+
+There's a pattern emerging in 2026 that the comparison guides don't cover: merchants using Shopify for the storefront and WooCommerce for the tracking backend. Shopify for its commerce features and app ecosystem. WooCommerce for its webhook flexibility and lower cost data layer.
+
+It's janky. But it reflects how cost-conscious operators are thinking about this. The tracking economics make it attractive even if the operational overhead is real.
+
+The cleaner version: keep Shopify, add a platform-agnostic first-party trust layer that gives you WooCommerce-level data control without migrating your store. That's what DataCops does.
+
+---
+
+## What do you actually need?
+
+There are a lot of ways to run tracking on Shopify and WooCommerce. No single answer fits all stores.
+
+The real question: what's your actual problem?
+
+- Want plug-and-play with no technical setup? Shopify with Elevar or Analyzify handles it. Budget $300 to $600/mo for the full stack.
+
+- Want data control and lower costs? WooCommerce with Conversios or a custom GTM setup runs $89 to $149/mo. Plan for 30 to 45 minutes of initial configuration.
+
+- Spending $20K+/mo on paid ads and attribution is broken? Add Cometly or Northbeam on top of your existing setup. Budget accordingly.
+
+- Want to recover the 30 to 40% of conversions that browser-based tracking misses on either platform? Server-side CAPI plus a first-party CNAME is the fix. DataCops does this on both Shopify and WooCommerce for $7.99 to $49/mo depending on volume.
+
+- Running subscriptions on Shopify with Recharge? Littledata is the cleanest data-layer fix for that specific setup.
+
+Now it's your turn. What tracking stack are you running in 2026? Are you on Shopify or WooCommerce? What's the cost adding up to? Drop it below. I'm genuinely curious what setups are working for people at different revenue bands.
 
 ---
 
